@@ -87,6 +87,7 @@ module bmi_snow17_module
            set_value_at_indices_int, &
            set_value_at_indices_float, &
            set_value_at_indices_double
+      procedure :: recompute_adc_from_3param
 !      procedure :: print_model_info
   end type bmi_snow17
 
@@ -295,6 +296,12 @@ contains
        bmi_status = BMI_SUCCESS
     case('adc1', 'adc2', 'adc3', 'adc4', 'adc5', &  ! adc parameters
          'adc6', 'adc7', 'adc8', 'adc9', 'adc10', 'adc11')
+       grid = 0
+       bmi_status = BMI_SUCCESS
+    case('adc_a', 'adc_b', 'adc_c')  ! 3-parameter ADC parameters
+       grid = 0
+       bmi_status = BMI_SUCCESS
+    case('use_3param_adc')  ! flag to control 3-param vs 11-point ADC mode
        grid = 0
        bmi_status = BMI_SUCCESS
     case default
@@ -578,6 +585,9 @@ contains
          'adc6', 'adc7', 'adc8', 'adc9', 'adc10', 'adc11')
        type = "real"
        bmi_status = BMI_SUCCESS
+    case('adc_a', 'adc_b', 'adc_c')  ! 3-parameter ADC parameters
+       type = "real"
+       bmi_status = BMI_SUCCESS
     case('hru_id')
        type = "character"
        bmi_status = BMI_SUCCESS
@@ -623,6 +633,9 @@ contains
        units = "unitless"
        bmi_status = BMI_SUCCESS
     case('adc1', 'adc2', 'adc3', 'adc4', 'adc5', 'adc6', 'adc7', 'adc8', 'adc9', 'adc10', 'adc11')
+        units = "unitless"
+        bmi_status = BMI_SUCCESS
+    case('adc_a', 'adc_b', 'adc_c')  ! 3-parameter ADC parameters
         units = "unitless"
         bmi_status = BMI_SUCCESS
     case default
@@ -740,6 +753,15 @@ contains
        bmi_status = BMI_SUCCESS
     case("adc11")
        size = sizeof(this%model%parameters%adc(11,:))
+       bmi_status = BMI_SUCCESS
+    case("adc_a")
+       size = sizeof(this%model%parameters%adc_a)
+       bmi_status = BMI_SUCCESS
+    case("adc_b")
+       size = sizeof(this%model%parameters%adc_b)
+       bmi_status = BMI_SUCCESS
+    case("adc_c")
+       size = sizeof(this%model%parameters%adc_c)
        bmi_status = BMI_SUCCESS
     case default
        size = -1
@@ -907,6 +929,15 @@ contains
     !   bmi_status = BMI_SUCCESS
     case("total_area")
        dest(1) = this%model%parameters%total_area
+       bmi_status = BMI_SUCCESS
+    case("adc_a")
+       dest = [this%model%parameters%adc_a]
+       bmi_status = BMI_SUCCESS
+    case("adc_b")
+       dest = [this%model%parameters%adc_b]
+       bmi_status = BMI_SUCCESS
+    case("adc_c")
+       dest = [this%model%parameters%adc_c]
        bmi_status = BMI_SUCCESS
     case default
        dest(:) = -1.0
@@ -1125,6 +1156,7 @@ contains
        bmi_status = BMI_SUCCESS
     case("adc2")
        this%model%parameters%adc(2,:) = src(:)
+       ! Note: Individual ADC points override 3-param computation for manual control
        bmi_status = BMI_SUCCESS
     case("adc3")
        this%model%parameters%adc(3,:) = src(:)
@@ -1164,6 +1196,55 @@ contains
        bmi_status = BMI_SUCCESS
     case("total_area")
        this%model%parameters%total_area = src(1)
+       bmi_status = BMI_SUCCESS
+    case("adc_a")
+       ! Validate adc_a range (0.0 to 0.25)
+       if (any(src < 0.0) .or. any(src > 0.25)) then
+         print *, 'Error: adc_a values must be between 0.0 and 0.25'
+         bmi_status = BMI_FAILURE
+         return
+       end if
+       this%model%parameters%adc_a(:) = src(:)
+       this%model%parameters%use_3param_adc(:) = .true.
+       ! Recompute 11-point ADC for all HRUs when adc_a is set
+       ! Only recompute if all 3 parameters are in valid ranges
+       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
+           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
+           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
+         call this%recompute_adc_from_3param()
+       end if
+       bmi_status = BMI_SUCCESS
+    case("adc_b")
+       ! Validate adc_b range (0.05 to 8.0)
+       if (any(src < 0.05) .or. any(src > 8.0)) then
+         print *, 'Error: adc_b values must be between 0.05 and 8.0'
+         bmi_status = BMI_FAILURE
+         return
+       end if
+       this%model%parameters%adc_b(:) = src(:)
+       ! Recompute 11-point ADC for all HRUs when adc_b is set
+       ! Only recompute if all 3 parameters are in valid ranges
+       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
+           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
+           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
+         call this%recompute_adc_from_3param()
+       end if
+       bmi_status = BMI_SUCCESS
+    case("adc_c")
+       ! Validate adc_c range (0.5 to 8.0)
+       if (any(src < 0.5) .or. any(src > 8.0)) then
+         print *, 'Error: adc_c values must be between 0.5 and 8.0'
+         bmi_status = BMI_FAILURE
+         return
+       end if
+       this%model%parameters%adc_c(:) = src(:)
+       ! Recompute 11-point ADC for all HRUs when adc_c is set
+       ! Only recompute if all 3 parameters are in valid ranges
+       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
+           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
+           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
+         call this%recompute_adc_from_3param()
+       end if
        bmi_status = BMI_SUCCESS
     case default
        bmi_status = BMI_FAILURE
@@ -1290,5 +1371,17 @@ contains
    endif
  end function register_bmi
 #endif
+
+  ! Helper subroutine to recompute 11-point ADC from 3 parameters for all HRUs using 3-param mode
+  subroutine recompute_adc_from_3param(this)
+    class (bmi_snow17), intent(inout) :: this
+    integer :: i
+    
+    do i = 1, size(this%model%parameters%use_3param_adc)
+      if (this%model%parameters%use_3param_adc(i)) then
+        call this%model%parameters%compute_adc_from_3param(i)
+      end if
+    end do
+  end subroutine recompute_adc_from_3param
 
 end module bmi_snow17_module

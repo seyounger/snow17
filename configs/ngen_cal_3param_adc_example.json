@@ -1,0 +1,66 @@
+{
+  "_comment": "Example ngen-cal configuration for Snow17 3-parameter ADC calibration",
+  "_note": "This example shows 3-parameter ADC calibration. For 11-point calibration, use adc2-adc10 instead.",
+  "_calibration_modes": {
+    "3param_adc": "Use adc_a, adc_b, adc_c parameters (as shown below)",
+    "11point_adc": "Use adc2, adc3, ..., adc10 parameters (adc1=0.05, adc11=1.0 typically fixed)",
+    "hybrid": "Provide some parameters in config file, calibrate subset via BMI",
+    "partial": "Calibrate only specific parameters, others use defaults or file values"
+  },
+  "algorithm": "dds",
+  "iterations": 100,
+  "random_seed": 42,
+  "start_iteration": 0,
+  "model_params": [
+    {
+      "param_name": "adc_a",
+      "min": 0.0,
+      "max": 0.25,
+      "init": 0.125
+    },
+    {
+      "param_name": "adc_b", 
+      "min": 0.05,
+      "max": 8.0,
+      "init": 1.0
+    },
+    {
+      "param_name": "adc_c",
+      "min": 0.5,
+      "max": 8.0,
+      "init": 2.0
+    },
+    {
+      "param_name": "mfmax",
+      "min": 0.5,
+      "max": 5.0,
+      "init": 2.5
+    },
+    {
+      "param_name": "mfmin",
+      "min": 0.1,
+      "max": 2.0,
+      "init": 0.5
+    },
+    {
+      "param_name": "scf",
+      "min": 0.8,
+      "max": 2.0,
+      "init": 1.5
+    }
+  ],
+  "objective": [
+    {
+      "name": "kling_gupta_efficiency",
+      "weight": 1.0
+    }
+  ],
+  "evaluation": {
+    "type": "independent",
+    "workdir": "./calibration",
+    "ngen_config_path": "./configs/example_3param_adc_config.json",
+    "observation_path": "./obs/cat-27_observed_flow.csv",
+    "start_time": "2015-10-01 00:00:00",
+    "end_time": "2020-09-30 23:00:00"
+  }
+}

@@ -1,0 +1,20 @@
+hru_id          cat-27
+latitude        39.8842
+elev            2469.0
+hru_area        9.6270
+scf             1.500
+mfmax           2.50
+mfmin           0.50
+uadj            0.080
+si              2000.0
+pxtemp          2.0
+nmf             0.15
+tipm            0.50
+mbase           2.0
+plwhc           0.04
+daygm           0.040
+! 3-parameter ADC: adc = a*x^b + (1-a)*x^c
+! This replaces the 11 individual adc1-adc11 parameters
+adc_a           0.65
+adc_b           0.8  
+adc_c           3.0

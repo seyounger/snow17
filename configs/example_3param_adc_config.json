@@ -1,0 +1,30 @@
+{
+  "model": {
+    "model_type_name": "BMI_SNOW17",
+    "forcing": {
+      "path": "./forcings/cat-27_2015-2020.csv"
+    },
+    "main_output_variable": "Q_OUT"
+  },
+  "bmi_init_config": "./configs/snow17-init-cat-27-3param-adc.namelist.input",
+  "output_variables": [
+    "sneqv",
+    "snowh",
+    "raim",
+    "precip_scf"
+  ],
+  "bmi_model_params": [
+    {
+      "param_name": "adc_a",
+      "param_value": [0.65]
+    },
+    {
+      "param_name": "adc_b", 
+      "param_value": [0.8]
+    },
+    {
+      "param_name": "adc_c",
+      "param_value": [3.0]
+    }
+  ]
+}
