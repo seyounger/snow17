@@ -69,11 +69,32 @@ $(snow19_objs): %.o: ../../src/snow19/%.f
 	$(F90) -c $(F90FLAGS) -I./ $<
 
 test: $(CMD)
+	@echo "Running both 11-point and 3-parameter unit tests via 'make test'..."
 	cd ../../test_cases; tar -zxvf ex1.tgz; \
         cd ex1/run; \
-	../../../test_cases/unit_test/snow17_driver_test.exe ./namelist.bmi.HHWM8
+	../../../test_cases/unit_test/$(CMD) ./namelist.bmi.HHWM8 && \
+	../../../test_cases/unit_test/$(CMD) ./namelist.bmi.3param.HHWM8
+
+# Run the unit test with a 3-parameter ADC configuration
+test_3param: $(CMD)
+	@echo "Running 3-parameter ADC unit test..."
+	cd ../../test_cases; tar -zxvf ex1.tgz; \
+		cd ex1/run; \
+	../../../test_cases/unit_test/$(CMD) ./namelist.bmi.3param.HHWM8
+
+# Run both the 11-point and 3-parameter tests sequentially
+test_both: $(CMD)
+	@echo "Running both 11-point and 3-parameter unit tests..."
+	cd ../../test_cases; tar -zxvf ex1.tgz; \
+		cd ex1/run; \
+	../../../test_cases/unit_test/$(CMD) ./namelist.bmi.HHWM8 && \
+	../../../test_cases/unit_test/$(CMD) ./namelist.bmi.3param.HHWM8
 
 # This command cleans up
 clean:
 	rm -f *.mod *.o $(CMD)
+
+# Remove build artifacts and the unpacked ex1 directory
+distclean: clean
+	rm -rf ../../test_cases/ex1
 

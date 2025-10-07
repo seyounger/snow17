@@ -2,13 +2,13 @@
 
 ## Overview
 
-The enhanced BMI Snow17 implementation now supports both the traditional 11-parameter ADC and an advanced 3-parameter ADC calibration method, based on the approach used in the NWRFC `nwsrfs-hydro-models` repository.
+Thhis BMI Snow17 implementation supports both the traditional 11-parameter ADC and 3-parameter ADC calibration method, based on the approach used in the NWRFC `nwsrfs-hydro-models` repository.
 
 ## Background
 
 The Snow17 model uses an Areal Depletion Curve (ADC) to represent how snow-covered area decreases as snow water equivalent decreases. Traditionally, this is specified as 11 discrete points from 0.0 to 1.0 in 0.1 increments.
 
-The 3-parameter approach uses a non-linear functional form to generate these 11 points automatically, reducing the parameter space and potentially improving calibration efficiency.
+The 3-parameter approach calibrates a non-linear functional form and generates the 11 points along the curve.
 
 ## 3-Parameter ADC Formula
 
@@ -33,10 +33,10 @@ The parameters control different curve shapes:
 
 ### Configuration Files
 
-To use 3-parameter ADC, specify the three parameters in your parameter file instead of the 11 individual `adc1` through `adc11` parameters:
+To use 3-parameter ADC, specify the three parameters in your calibration config or in the parameter files instead of the 11 individual `adc1` through `adc11` parameters:
 
 ```
-adc_a    0.65
+adc_a    0.2
 adc_b    0.8
 adc_c    3.0
 ```
@@ -53,9 +53,9 @@ The 3-parameter ADC parameters are accessible via the BMI interface:
 ### Parameter Ranges
 
 Recommended parameter ranges based on NWRFC implementation:
-- `adc_a`: 0.1 to 0.9 (typical: 0.4 to 0.8)
-- `adc_b`: 0.1 to 5.0 (typical: 0.5 to 2.0)
-- `adc_c`: 0.1 to 5.0 (typical: 1.0 to 4.0)
+- `adc_a`: 0.1 to 0.25
+- `adc_b`: 0.05 to 50
+- `adc_c`: 0.5 to 50
 
 ## Implementation Details
 
@@ -67,21 +67,6 @@ When 3-parameter ADC is used:
 4. The Snow17 model uses the computed 11-point ADC normally
 
 The reverse lookup algorithm ensures monotonicity and applies the standard 0.05 minimum value constraint.
-
-## Advantages
-
-1. **Reduced parameter space**: 3 parameters instead of 11
-2. **Automatic monotonicity**: The functional form ensures valid ADC curves
-3. **Calibration efficiency**: Fewer parameters to optimize
-4. **Physical interpretation**: Parameters have more direct physical meaning
-5. **Backward compatibility**: Can still use traditional 11-point specification
-
-## Example Usage
-
-See the example configuration files:
-- `configs/example_3param_adc_config.json`
-- `configs/snow17-init-cat-27-3param-adc.namelist.input` 
-- `configs/snow17-params-cat-27-3param-adc.txt`
 
 ## References
 
