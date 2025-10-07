@@ -2,7 +2,7 @@
 
 ## Overview
 
-Thhis BMI Snow17 implementation supports both the traditional 11-parameter ADC and 3-parameter ADC calibration method, based on the approach used in the NWRFC `nwsrfs-hydro-models` repository.
+This BMI Snow17 implementation supports both the traditional 11-parameter ADC and 3-parameter ADC calibration method, based on the approach used in the NWRFC `nwsrfs-hydro-models` repository.
 
 ## Background
 
@@ -53,7 +53,7 @@ The 3-parameter ADC parameters are accessible via the BMI interface:
 ### Parameter Ranges
 
 Recommended parameter ranges based on NWRFC implementation:
-- `adc_a`: 0.1 to 0.25
+- `adc_a`: 0.0 to 0.25
 - `adc_b`: 0.05 to 50
 - `adc_c`: 0.5 to 50
 
