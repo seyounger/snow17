@@ -27,7 +27,6 @@ contains
     integer    	            :: ios   ! specify i4b with nrtype?
     integer                 :: pos
     integer                 :: n_params_read, nh  ! counters
-    integer                 :: i  ! loop variable for ADC computation
   
     !Use assignment instead of declaration+initialization to avoid SAVE attribute gotcha
     ios = 0
@@ -134,16 +133,6 @@ contains
           case ('adc11')
             read(readline, *, iostat=ios) this%adc(11,:)
             n_params_read = n_params_read + 1
-          case ('adc_a')
-            read(readline, *, iostat=ios) this%adc_a
-            this%use_3param_adc(:) = .true.
-            n_params_read = n_params_read + 1
-          case ('adc_b')
-            read(readline, *, iostat=ios) this%adc_b
-            n_params_read = n_params_read + 1
-          case ('adc_c')
-            read(readline, *, iostat=ios) this%adc_c
-            n_params_read = n_params_read + 1
           case default
             print *, 'Parameter ',param,' not recognized in snow file'
         end select
@@ -153,45 +142,6 @@ contains
     end do
     close(unit=51)
   
-    ! Flexible parameter validation - support various calibration scenarios
-    ! Users can provide parameters via file, BMI, or a combination
-    if (n_params_read > 0) then
-      print *, 'Read ', n_params_read, ' SNOW17 parameters from file.'
-      
-      ! Check ADC mode and validate accordingly
-      if (any(this%use_3param_adc)) then
-        ! 3-parameter ADC mode detected
-        print *, 'Using 3-parameter ADC mode for some/all HRUs.'
-        
-        ! For 3-param mode, we need at least the 3 ADC parameters (adc_a, adc_b, adc_c)
-        ! Other parameters can be provided via BMI
-        ! Compute 11-point ADC from 3 parameters for HRUs that use 3-param mode
-        do i = 1, size(this%use_3param_adc)
-          if (this%use_3param_adc(i)) then
-            call this%compute_adc_from_3param(i)
-          end if
-        end do
-      else
-        ! Traditional 11-point ADC mode
-        print *, 'Using traditional 11-point ADC mode.'
-        
-        ! Check if we have any ADC points defined (adc2-adc10 are calibratable)
-        ! adc1 and adc11 are typically fixed at 0.05 and 1.0
-        ! Users might provide only some ADC points for calibration
-      end if
-      
-      ! Note: Missing parameters will be initialized to defaults or set via BMI
-      print *, 'Any missing parameters will use defaults or be set via BMI interface.'
-      
-    else
-      ! No parameters read from file - full BMI mode
-      print *, 'No parameters read from file. Using BMI-only parameter mode.'
-      print *, 'All parameters must be set via BMI interface or will use defaults.'
-    end if
-    
-    ! Provide guidance for ADC calibration scenarios
-    call validate_adc_calibration_setup(this)
-    
     ! calculate derived parameters
     this%total_area = 0.0
     do nh=1, runinfo%n_hrus
@@ -200,40 +150,6 @@ contains
     
     return
   end subroutine read_snow17_parameters
-
-  ! Helper subroutine to validate ADC calibration setup
-  subroutine validate_adc_calibration_setup(this)
-    class(parameters_type), intent(in) :: this
-    logical :: has_3param_adc, has_11point_adc
-    integer :: adc_points_count, i
-    
-    ! Check what ADC parameters are available
-    has_3param_adc = any(this%use_3param_adc)
-    
-    ! Count how many 11-point ADC values are non-default (for calibration)
-    ! adc2-adc10 are the calibratable points (adc1=0.05, adc11=1.0 are typically fixed)
-    adc_points_count = 0
-    do i = 2, 10
-      if (any(this%adc(i,:) > 0.05 .and. this%adc(i,:) < 1.0)) then
-        adc_points_count = adc_points_count + 1
-      end if
-    end do
-    has_11point_adc = (adc_points_count >= 3)  ! Need at least some points for meaningful calibration
-    
-    ! Provide calibration guidance
-    if (has_3param_adc .and. has_11point_adc) then
-      print *, 'Warning: Both 3-parameter and 11-point ADC data detected.'
-      print *, '         3-parameter mode will take precedence for HRUs with use_3param_adc=true.'
-    elseif (has_3param_adc) then
-      print *, 'Info: 3-parameter ADC mode ready for calibration (adc_a, adc_b, adc_c).'
-    elseif (has_11point_adc) then
-      print *, 'Info: 11-point ADC mode with', adc_points_count, 'calibratable points (adc2-adc10).'
-    else
-      print *, 'Info: ADC parameters will use defaults or be set via BMI for calibration.'
-      print *, '      For ADC calibration: provide either (adc_a,adc_b,adc_c) or (adc2-adc10).'
-    end if
-    
-  end subroutine validate_adc_calibration_setup
 
   ! ==== Open forcings files and read to start of first record
   SUBROUTINE init_forcing_files(namelist, runinfo, parameters)

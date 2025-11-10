@@ -87,6 +87,8 @@ module bmi_snow17_module
            set_value_at_indices_int, &
            set_value_at_indices_float, &
            set_value_at_indices_double
+      procedure :: set_3param_adc_float
+      procedure :: set_3param_adc_double
       procedure :: recompute_adc_from_3param
 !      procedure :: print_model_info
   end type bmi_snow17
@@ -267,8 +269,8 @@ contains
        return
     end if
     ! otherwise try to advance to end time
-    tmp_time = time
-    do while ( tmp_time < this%model%runinfo%end_datetime )
+    tmp_time = this%model%runinfo%curr_datetime
+    do while ( tmp_time < time )
        s = this%update()
        tmp_time = this%model%runinfo%curr_datetime
     end do
@@ -290,8 +292,8 @@ contains
        bmi_status = BMI_SUCCESS
     case('scf', 'mfmax', 'mfmin', 'uadj', 'si', &  ! parameters
          'pxtemp', 'nmf', 'tipm', 'mbase', 'plwhc', &
-         'daygm', 'adc','elev', 'latitude', &
-         'hru_area', 'total_area', 'hru_id')
+         'daygm', 'adc','elev', &
+         'hru_area', 'total_area')
        grid = 0
        bmi_status = BMI_SUCCESS
     case('adc1', 'adc2', 'adc3', 'adc4', 'adc5', &  ! adc parameters
@@ -573,23 +575,23 @@ contains
     select case(name)
     case('tair', 'precip', &                            ! input/output vars
          'precip_scf', 'sneqv', 'snowh', 'raim')        ! output vars
-       type = "real"
+       type = "double"
        bmi_status = BMI_SUCCESS
     case('scf', 'mfmax', 'mfmin', 'uadj', 'si', &       ! parameters
          'pxtemp', 'nmf', 'tipm', 'mbase', 'plwhc', &
-         'daygm', 'adc','elev', 'latitude', &
+         'daygm', 'adc','elev', &
          'hru_area', 'total_area')
-       type = "real"
+       type = "double"
        bmi_status = BMI_SUCCESS
     case('adc1', 'adc2', 'adc3', 'adc4', 'adc5', &       ! parameters
          'adc6', 'adc7', 'adc8', 'adc9', 'adc10', 'adc11')
-       type = "real"
+       type = "double"
        bmi_status = BMI_SUCCESS
     case('adc_a', 'adc_b', 'adc_c')  ! 3-parameter ADC parameters
-       type = "real"
+       type = "double"
        bmi_status = BMI_SUCCESS
-    case('hru_id')
-       type = "character"
+    case('use_3param_adc')  ! flag to control 3-param vs 11-point ADC mode
+       type = "integer"
        bmi_status = BMI_SUCCESS
     case default
        type = "-"
@@ -624,19 +626,25 @@ contains
        units = "mm/s"
        bmi_status = BMI_SUCCESS
     case("elev")
-       units = "mm/s"
+       units = "m"
        bmi_status = BMI_SUCCESS
-    case("hru_area", "total_area")
-       units = "km**2"
+    case("hru_area")
+       units = "m^2"
+       bmi_status = BMI_SUCCESS
+    case("total_area")
+       units = "m^2"
        bmi_status = BMI_SUCCESS
     case("adc", "scf", "mfmax", "mfmin", "uadj", "si", "pxtemp", "nmf", "tipm", "mbase", "plwhc", "daygm")
-       units = "unitless"
+       units = "1"
        bmi_status = BMI_SUCCESS
     case('adc1', 'adc2', 'adc3', 'adc4', 'adc5', 'adc6', 'adc7', 'adc8', 'adc9', 'adc10', 'adc11')
-        units = "unitless"
+        units = "1"
         bmi_status = BMI_SUCCESS
     case('adc_a', 'adc_b', 'adc_c')  ! 3-parameter ADC parameters
-        units = "unitless"
+        units = "1"
+        bmi_status = BMI_SUCCESS
+    case('use_3param_adc')  ! flag to control 3-param vs 11-point ADC mode
+        units = "1"
         bmi_status = BMI_SUCCESS
     case default
        units = "-"
@@ -673,14 +681,11 @@ contains
     case("raim")
        size = sizeof(this%model%modelvar%raim_comb)
        bmi_status = BMI_SUCCESS
-    case("hru_id")
-       size = sizeof(this%model%parameters%hru_id)
+    case("total_area")
+       size = sizeof(this%model%parameters%total_area)
        bmi_status = BMI_SUCCESS
     case("hru_area")
        size = sizeof(this%model%parameters%hru_area(1))
-       bmi_status = BMI_SUCCESS
-    case("latitude")
-       size = sizeof(this%model%parameters%latitude(1))
        bmi_status = BMI_SUCCESS
     case("elev")
        size = sizeof(this%model%parameters%elev(1))
@@ -718,8 +723,8 @@ contains
     case("daygm")
        size = sizeof(this%model%parameters%daygm(1))
        bmi_status = BMI_SUCCESS
-    case("total_area")
-       size = sizeof(this%model%parameters%total_area)
+    case("adc")
+       size = sizeof(this%model%parameters%adc(1,1))
        bmi_status = BMI_SUCCESS
     case("adc1")
        size = sizeof(this%model%parameters%adc(1,:))
@@ -755,13 +760,16 @@ contains
        size = sizeof(this%model%parameters%adc(11,:))
        bmi_status = BMI_SUCCESS
     case("adc_a")
-       size = sizeof(this%model%parameters%adc_a)
+       size = sizeof(this%model%parameters%adc_a(1))
        bmi_status = BMI_SUCCESS
     case("adc_b")
-       size = sizeof(this%model%parameters%adc_b)
+       size = sizeof(this%model%parameters%adc_b(1))
        bmi_status = BMI_SUCCESS
     case("adc_c")
-       size = sizeof(this%model%parameters%adc_c)
+       size = sizeof(this%model%parameters%adc_c(1))
+       bmi_status = BMI_SUCCESS
+    case("use_3param_adc")
+       size = sizeof(this%model%parameters%use_3param_adc(1))
        bmi_status = BMI_SUCCESS
     case default
        size = -1
@@ -776,6 +784,31 @@ contains
     integer, intent(out) :: nbytes
     integer :: bmi_status
     integer :: s1, s2, s3, grid, grid_size, item_size
+
+    select case(name)
+    case("adc")
+       nbytes = sizeof(this%model%parameters%adc)
+       bmi_status = BMI_SUCCESS
+       return
+    case("adc_a")
+       nbytes = sizeof(this%model%parameters%adc_a)
+       bmi_status = BMI_SUCCESS
+       return
+    case("adc_b")
+       nbytes = sizeof(this%model%parameters%adc_b)
+       bmi_status = BMI_SUCCESS
+       return
+    case("adc_c")
+       nbytes = sizeof(this%model%parameters%adc_c)
+       bmi_status = BMI_SUCCESS
+       return
+    case("use_3param_adc")
+       nbytes = sizeof(this%model%parameters%use_3param_adc)
+       bmi_status = BMI_SUCCESS
+       return
+    case default
+       continue
+    end select
 
     s1 = this%get_var_grid(name, grid)
     s2 = this%get_grid_size(grid, grid_size)
@@ -812,6 +845,9 @@ contains
     integer :: bmi_status
 
     select case(name)
+    case("use_3param_adc")
+       dest(:) = [merge(1, 0, this%model%parameters%use_3param_adc)]
+       bmi_status = BMI_SUCCESS
 !==================== UPDATE IMPLEMENTATION IF NECESSARY FOR INTEGER VARS =================
 !     case("model__identification_number")
 !        dest = [this%model%id]
@@ -854,9 +890,6 @@ contains
     !   bmi_status = BMI_SUCCESS
     case("hru_area")
        dest = [this%model%parameters%hru_area]
-       bmi_status = BMI_SUCCESS
-    case("latitude")
-       dest = [this%model%parameters%latitude]
        bmi_status = BMI_SUCCESS
     case("elev")
        dest = [this%model%parameters%elev]
@@ -954,9 +987,80 @@ contains
     double precision, intent(inout) :: dest(:)
     integer :: bmi_status
 
-    !==================== UPDATE IMPLEMENTATION IF NECESSARY FOR DOUBLE VARS =================
-
     select case(name)
+    case("precip")
+       dest(1) = this%model%forcing%precip(1)
+       bmi_status = BMI_SUCCESS
+    case("tair")
+       dest(1) = this%model%forcing%tair(1)
+       bmi_status = BMI_SUCCESS
+    case("precip_scf")
+       dest(1) = this%model%forcing%precip_scf_comb
+       bmi_status = BMI_SUCCESS
+    case("sneqv")
+       dest(1) = this%model%modelvar%sneqv_comb
+       bmi_status = BMI_SUCCESS
+    case("snowh")
+       dest(1) = this%model%modelvar%snowh_comb
+       bmi_status = BMI_SUCCESS
+    case("raim")
+       dest(1) = this%model%modelvar%raim_comb
+       bmi_status = BMI_SUCCESS
+
+    case("hru_area")
+       dest = [this%model%parameters%hru_area]
+       bmi_status = BMI_SUCCESS
+    case("elev")
+       dest = [this%model%parameters%elev]
+       bmi_status = BMI_SUCCESS
+    case("scf")
+       dest = [this%model%parameters%scf]
+       bmi_status = BMI_SUCCESS
+    case("mfmax")
+       dest = [this%model%parameters%mfmax]
+       bmi_status = BMI_SUCCESS
+    case("mfmin")
+       dest = [this%model%parameters%mfmin]
+       bmi_status = BMI_SUCCESS
+    case("uadj")
+       dest = [this%model%parameters%uadj]
+       bmi_status = BMI_SUCCESS
+    case("si")
+       dest = [this%model%parameters%si]
+       bmi_status = BMI_SUCCESS
+    case("pxtemp")
+       dest = [this%model%parameters%pxtemp]
+       bmi_status = BMI_SUCCESS
+    case("nmf")
+       dest = [this%model%parameters%nmf]
+       bmi_status = BMI_SUCCESS
+    case("tipm")
+       dest = [this%model%parameters%tipm]
+       bmi_status = BMI_SUCCESS
+    case("mbase")
+       dest = [this%model%parameters%mbase]
+       bmi_status = BMI_SUCCESS
+    case("plwhc")
+       dest = [this%model%parameters%plwhc]
+       bmi_status = BMI_SUCCESS
+    case("daygm")
+       dest = [this%model%parameters%daygm]
+       bmi_status = BMI_SUCCESS
+    case("adc")
+       dest = [this%model%parameters%adc]
+       bmi_status = BMI_SUCCESS
+    case("total_area")
+       dest(1) = this%model%parameters%total_area
+       bmi_status = BMI_SUCCESS
+    case("adc_a")
+       dest = [this%model%parameters%adc_a]
+       bmi_status = BMI_SUCCESS
+    case("adc_b")
+       dest = [this%model%parameters%adc_b]
+       bmi_status = BMI_SUCCESS
+    case("adc_c")
+       dest = [this%model%parameters%adc_c]
+       bmi_status = BMI_SUCCESS
     case default
        dest(:) = -1.d0
        bmi_status = BMI_FAILURE
@@ -1006,7 +1110,6 @@ contains
      type (c_ptr) :: src
      integer :: n_elements
 
- !==================== UPDATE IMPLEMENTATION IF NECESSARY FOR DOUBLE VARS =================
 
      select case(name)
      case default
@@ -1078,6 +1181,9 @@ contains
     !==================== UPDATE IMPLEMENTATION IF NECESSARY FOR INTEGER VARS =================
 
     select case(name)
+    case("use_3param_adc")
+       this%model%parameters%use_3param_adc(:) = (src(:) /= 0)
+       bmi_status = BMI_SUCCESS
 !     case("model__identification_number")
 !        this%model%id = src(1)
 !        bmi_status = BMI_SUCCESS
@@ -1188,64 +1294,15 @@ contains
     case("elev")
        this%model%parameters%elev(:) = src(:)
        bmi_status = BMI_SUCCESS
-    case("latitude")
-       this%model%parameters%latitude(:) = src(:)
-       bmi_status = BMI_SUCCESS
     case("hru_area")
        this%model%parameters%hru_area(:) = src(:)
        bmi_status = BMI_SUCCESS
     case("total_area")
        this%model%parameters%total_area = src(1)
        bmi_status = BMI_SUCCESS
-    case("adc_a")
-       ! Validate adc_a range (0.0 to 0.25)
-       if (any(src < 0.0) .or. any(src > 0.25)) then
-         print *, 'Error: adc_a values must be between 0.0 and 0.25'
-         bmi_status = BMI_FAILURE
-         return
-       end if
-       this%model%parameters%adc_a(:) = src(:)
-       this%model%parameters%use_3param_adc(:) = .true.
-       ! Recompute 11-point ADC for all HRUs when adc_a is set
-       ! Only recompute if all 3 parameters are in valid ranges
-       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
-           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
-           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
-         call this%recompute_adc_from_3param()
-       end if
-       bmi_status = BMI_SUCCESS
-    case("adc_b")
-       ! Validate adc_b range (0.05 to 8.0)
-       if (any(src < 0.05) .or. any(src > 8.0)) then
-         print *, 'Error: adc_b values must be between 0.05 and 8.0'
-         bmi_status = BMI_FAILURE
-         return
-       end if
-       this%model%parameters%adc_b(:) = src(:)
-       ! Recompute 11-point ADC for all HRUs when adc_b is set
-       ! Only recompute if all 3 parameters are in valid ranges
-       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
-           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
-           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
-         call this%recompute_adc_from_3param()
-       end if
-       bmi_status = BMI_SUCCESS
-    case("adc_c")
-       ! Validate adc_c range (0.5 to 8.0)
-       if (any(src < 0.5) .or. any(src > 8.0)) then
-         print *, 'Error: adc_c values must be between 0.5 and 8.0'
-         bmi_status = BMI_FAILURE
-         return
-       end if
-       this%model%parameters%adc_c(:) = src(:)
-       ! Recompute 11-point ADC for all HRUs when adc_c is set
-       ! Only recompute if all 3 parameters are in valid ranges
-       if (all(this%model%parameters%adc_a >= 0.0 .and. this%model%parameters%adc_a <= 0.25) .and. &
-           all(this%model%parameters%adc_b >= 0.05 .and. this%model%parameters%adc_b <= 8.0) .and. &
-           all(this%model%parameters%adc_c >= 0.5 .and. this%model%parameters%adc_c <= 8.0)) then
-         call this%recompute_adc_from_3param()
-       end if
-       bmi_status = BMI_SUCCESS
+    case("adc_a", "adc_b", "adc_c")
+       bmi_status = this%set_3param_adc_float(name, src)
+       if (bmi_status == BMI_FAILURE) return
     case default
        bmi_status = BMI_FAILURE
     end select
@@ -1260,9 +1317,107 @@ contains
     double precision, intent(in) :: src(:)
     integer :: bmi_status
 
-    !==================== UPDATE IMPLEMENTATION IF NECESSARY FOR DOUBLE VARS =================
+    ! NOTE: if run in a vector (snowband mode), this code will need revising
+    !       to set the basin average
 
     select case(name)
+    case("precip")
+       this%model%forcing%precip(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("tair")
+       this%model%forcing%tair(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("precip_scf")
+       this%model%forcing%precip_scf(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("sneqv")
+       this%model%modelvar%sneqv(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("snowh")
+       this%model%modelvar%snowh(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("raim")
+       this%model%modelvar%raim(1) = src(1)
+       bmi_status = BMI_SUCCESS
+    case("scf")
+       this%model%parameters%scf(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("mfmax")
+       this%model%parameters%mfmax(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("mfmin")
+       this%model%parameters%mfmin(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("uadj")
+       this%model%parameters%uadj(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("si")
+       this%model%parameters%si(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("pxtemp")
+       this%model%parameters%pxtemp(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("nmf")
+       this%model%parameters%nmf(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("tipm")
+       this%model%parameters%tipm(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("mbase")
+       this%model%parameters%mbase(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("plwhc")
+       this%model%parameters%plwhc(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("daygm")
+       this%model%parameters%daygm(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc1")
+       this%model%parameters%adc(1,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc2")
+       this%model%parameters%adc(2,:) = src(:)
+       ! Note: Individual ADC points override 3-param computation for manual control
+       bmi_status = BMI_SUCCESS
+    case("adc3")
+       this%model%parameters%adc(3,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc4")
+       this%model%parameters%adc(4,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc5")
+       this%model%parameters%adc(5,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc6")
+       this%model%parameters%adc(6,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc7")
+       this%model%parameters%adc(7,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc8")
+       this%model%parameters%adc(8,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc9")
+       this%model%parameters%adc(9,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc10")
+       this%model%parameters%adc(10,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("adc11")
+       this%model%parameters%adc(11,:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("elev")
+       this%model%parameters%elev(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("hru_area")
+       this%model%parameters%hru_area(:) = src(:)
+       bmi_status = BMI_SUCCESS
+    case("total_area")
+       this%model%parameters%total_area = src(1)
+       bmi_status = BMI_SUCCESS
+    case("adc_a", "adc_b", "adc_c")
+       bmi_status = this%set_3param_adc_double(name, src)
+       if (bmi_status == BMI_FAILURE) return
     case default
        bmi_status = BMI_FAILURE
     end select
@@ -1372,16 +1527,148 @@ contains
  end function register_bmi
 #endif
 
-  ! Helper subroutine to recompute 11-point ADC from 3 parameters for all HRUs using 3-param mode
-  subroutine recompute_adc_from_3param(this)
+  ! Helper function to set 3-parameter ADC value with validation and rollback (double precision)
+  function set_3param_adc_double(this, param_name, src) result(bmi_status)
     class (bmi_snow17), intent(inout) :: this
+    character(len=*), intent(in) :: param_name
+    double precision, intent(in) :: src(:)
+    integer :: bmi_status
+    
+    double precision, allocatable :: original_value(:)
+    double precision, allocatable :: original_adc(:,:)
+    logical, allocatable :: original_flag(:)
+    
+    ! Save original state for rollback
+    select case(param_name)
+    case('adc_a')
+       allocate(original_value(size(this%model%parameters%adc_a)))
+       original_value = this%model%parameters%adc_a(:)
+    case('adc_b')
+       allocate(original_value(size(this%model%parameters%adc_b)))
+       original_value = this%model%parameters%adc_b(:)
+    case('adc_c')
+       allocate(original_value(size(this%model%parameters%adc_c)))
+       original_value = this%model%parameters%adc_c(:)
+    case default
+       bmi_status = BMI_FAILURE
+       return
+    end select
+    
+    allocate(original_adc(size(this%model%parameters%adc,1), size(this%model%parameters%adc,2)))
+    allocate(original_flag(size(this%model%parameters%use_3param_adc)))
+    original_adc = this%model%parameters%adc(:,:)
+    original_flag = this%model%parameters%use_3param_adc(:)
+    
+    ! Set new value
+    select case(param_name)
+    case('adc_a')
+       this%model%parameters%adc_a(:) = src(:)
+    case('adc_b')
+       this%model%parameters%adc_b(:) = src(:)
+    case('adc_c')
+       this%model%parameters%adc_c(:) = src(:)
+    end select
+    
+    ! Enable 3-parameter mode and recompute
+    this%model%parameters%use_3param_adc(:) = .true.
+    if (.not. this%recompute_adc_from_3param()) then
+       ! Rollback on failure
+       select case(param_name)
+       case('adc_a')
+          this%model%parameters%adc_a(:) = original_value
+       case('adc_b')
+          this%model%parameters%adc_b(:) = original_value
+       case('adc_c')
+          this%model%parameters%adc_c(:) = original_value
+       end select
+       this%model%parameters%adc(:,:) = original_adc
+       this%model%parameters%use_3param_adc(:) = original_flag
+       bmi_status = BMI_FAILURE
+    else
+       bmi_status = BMI_SUCCESS
+    end if
+    
+    deallocate(original_value, original_adc, original_flag)
+  end function set_3param_adc_double
+
+  ! Helper function to set 3-parameter ADC value with validation and rollback (single precision)
+  function set_3param_adc_float(this, param_name, src) result(bmi_status)
+    class (bmi_snow17), intent(inout) :: this
+    character(len=*), intent(in) :: param_name
+    real, intent(in) :: src(:)
+    integer :: bmi_status
+    
+    real, allocatable :: original_value(:)
+    real, allocatable :: original_adc(:,:)
+    logical, allocatable :: original_flag(:)
+    
+    ! Save original state for rollback
+    select case(param_name)
+    case('adc_a')
+       allocate(original_value(size(this%model%parameters%adc_a)))
+       original_value = this%model%parameters%adc_a(:)
+    case('adc_b')
+       allocate(original_value(size(this%model%parameters%adc_b)))
+       original_value = this%model%parameters%adc_b(:)
+    case('adc_c')
+       allocate(original_value(size(this%model%parameters%adc_c)))
+       original_value = this%model%parameters%adc_c(:)
+    case default
+       bmi_status = BMI_FAILURE
+       return
+    end select
+    
+    allocate(original_adc(size(this%model%parameters%adc,1), size(this%model%parameters%adc,2)))
+    allocate(original_flag(size(this%model%parameters%use_3param_adc)))
+    original_adc = this%model%parameters%adc(:,:)
+    original_flag = this%model%parameters%use_3param_adc(:)
+    
+    ! Set new value
+    select case(param_name)
+    case('adc_a')
+       this%model%parameters%adc_a(:) = src(:)
+    case('adc_b')
+       this%model%parameters%adc_b(:) = src(:)
+    case('adc_c')
+       this%model%parameters%adc_c(:) = src(:)
+    end select
+    
+    ! Enable 3-parameter mode and recompute
+    this%model%parameters%use_3param_adc(:) = .true.
+    if (.not. this%recompute_adc_from_3param()) then
+       ! Rollback on failure
+       select case(param_name)
+       case('adc_a')
+          this%model%parameters%adc_a(:) = original_value
+       case('adc_b')
+          this%model%parameters%adc_b(:) = original_value
+       case('adc_c')
+          this%model%parameters%adc_c(:) = original_value
+       end select
+       this%model%parameters%adc(:,:) = original_adc
+       this%model%parameters%use_3param_adc(:) = original_flag
+       bmi_status = BMI_FAILURE
+    else
+       bmi_status = BMI_SUCCESS
+    end if
+    
+    deallocate(original_value, original_adc, original_flag)
+  end function set_3param_adc_float
+
+  ! Helper subroutine to recompute 11-point ADC from 3 parameters for all HRUs using 3-param mode
+  function recompute_adc_from_3param(this) result(all_success)
+    class (bmi_snow17), intent(inout) :: this
+    logical :: all_success
+    logical :: success
     integer :: i
     
+    all_success = .true.
     do i = 1, size(this%model%parameters%use_3param_adc)
       if (this%model%parameters%use_3param_adc(i)) then
-        call this%model%parameters%compute_adc_from_3param(i)
+        call this%model%parameters%compute_adc_from_3param(i, success)
+        if (.not. success) all_success = .false.
       end if
     end do
-  end subroutine recompute_adc_from_3param
+  end function recompute_adc_from_3param
 
 end module bmi_snow17_module
