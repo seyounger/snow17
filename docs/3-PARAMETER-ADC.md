@@ -14,7 +14,7 @@ The 3-parameter approach uses three calibration parameters (a, b, c) and calcula
 
 This implementation calculates the 11 ADC points, where the independent variable `we_ratio` represents the snow water equivalent ratio (WE/AI) from 0.0 to 1.0, and the dependent variable `snow_cover` represents the areal snow-covered extent:
 
-$$ \text{snow\_cover} = a \times \text{we\_ratio}^b + (1-a) \times \text{we\_ratio}^c $$
+$$ snow\\_cover = a * we\\_ratio^b + (1-a) * we\\_ratio^c $$
 
 **Variable Definitions:**
 - `we_ratio` - snow water equivalent ratio (WE/AI) [0.0, 0.1, 0.2, ..., 1.0] - the independent variable
