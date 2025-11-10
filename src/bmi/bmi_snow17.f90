@@ -885,9 +885,6 @@ contains
        dest(1) = this%model%modelvar%raim_comb
        bmi_status = BMI_SUCCESS
 
-    !case("hru_id")
-    !   dest = [this%model%parameters%hru_id]
-    !   bmi_status = BMI_SUCCESS
     case("hru_area")
        dest = [this%model%parameters%hru_area]
        bmi_status = BMI_SUCCESS
@@ -1221,9 +1218,6 @@ contains
     case("raim")
        this%model%modelvar%raim(1) = src(1)
        bmi_status = BMI_SUCCESS
-    !case("hru_id")
-    !   this%model%parameters%hru_id = src(1)
-    !   bmi_status = BMI_SUCCESS   
     case("scf")
        this%model%parameters%scf(:) = src(:)
        bmi_status = BMI_SUCCESS
